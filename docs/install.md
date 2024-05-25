@@ -6,7 +6,7 @@ Following https://mmdetection3d.readthedocs.io/en/latest/getting_started.html#in
 
 **a. Create a conda virtual environment and activate it.**
 ```shell
-conda create -n maptr python=3.8 -y
+conda create -n MapTR python=3.8 -y
 conda activate maptr
 ```
 
@@ -49,7 +49,7 @@ git clone https://github.com/hustvl/MapTR.git
 cd /path/to/MapTR/mmdetection3d
 python setup.py develop
 
-cd /path/to/MapTR/projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn
+cd projects/mmdet3d_plugin/maptr/modules/ops/geometric_kernel_attn
 python setup.py build install
 
 ```
