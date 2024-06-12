@@ -47,7 +47,7 @@ _num_levels_ = 1
 # bev_w_ = 50
 bev_h_ = 200
 bev_w_ = 100
-queue_length = 1 # each sequence contains `queue_length` frames.
+queue_length = 1  # each sequence contains `queue_length` frames.
 
 model = dict(
     type='MapTR',

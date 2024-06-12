@@ -1,4 +1,5 @@
 import torch
+import pdb
 import numpy as np
 from mmcv.runner.base_module import BaseModule, ModuleList, Sequential
 import torch.nn as nn
@@ -293,9 +294,9 @@ class BaseTransform(BaseModule):
         )
         mlp_input = self.get_mlp_input(camera2ego, camera_intrinsics, post_rots, post_trans)
         x, depth = self.get_cam_feats(images, mlp_input)
+        # pdb.set_trace()
         x = self.bev_pool(geom, x)
-        # import pdb;pdb.set_trace()
-        x = x.permute(0,1,3,2).contiguous()
+        x = x.permute(0, 1, 3, 2).contiguous()
         
         return x, depth
 
@@ -824,19 +825,20 @@ class DepthNet(nn.Module):
         self.depth_conv = nn.Sequential(*depth_conv_list)
         self.with_cp = with_cp
 
-    def forward(self, x, mlp_input):
-        mlp_input = self.bn(mlp_input.reshape(-1, mlp_input.shape[-1]))
-        x = self.reduce_conv(x)
+    def forward(self, x, mlp_input):      # [12, 256, 15, 25],  mlp_input: [2, 6, 22]
+        # pdb.set_trace()
+        mlp_input = self.bn(mlp_input.reshape(-1, mlp_input.shape[-1]))      # [12, 22]
+        x = self.reduce_conv(x)           # [12, 256, 15, 25]
         if not self.only_depth:
-            context_se = self.context_mlp(mlp_input)[..., None, None]
-            context = self.context_se(x, context_se)
-            context = self.context_conv(context)
-        depth_se = self.depth_mlp(mlp_input)[..., None, None]
-        depth = self.depth_se(x, depth_se)
+            context_se = self.context_mlp(mlp_input)[..., None, None]        # [12, 256, 1, 1]
+            context = self.context_se(x, context_se)                         # [12, 256, 15, 25]
+            context = self.context_conv(context)                             # [12, 256, 15, 25]
+        depth_se = self.depth_mlp(mlp_input)[..., None, None]                # [12, 256, 1, 1]
+        depth = self.depth_se(x, depth_se)                                   # [12, 256, 15, 25]
         if self.with_cp:
             depth = checkpoint(self.depth_conv, depth)
         else:
-            depth = self.depth_conv(depth)
+            depth = self.depth_conv(depth)                                   # [12, 68, 15, 25]
         if not self.only_depth:
             return torch.cat([depth, context], dim=1)
         else:
@@ -847,8 +849,8 @@ class DepthNet(nn.Module):
 @TRANSFORMER_LAYER_SEQUENCE.register_module()
 class BEVFormerEncoderDepth(BEVFormerEncoder):
 
-    def __init__(self, *args, in_channels=256, out_channels=256, feat_down_sample=32, loss_depth_weight = 3.0,
-                 depthnet_cfg=dict(),grid_config=None,**kwargs):
+    def __init__(self, *args, in_channels=256, out_channels=256, feat_down_sample=32, loss_depth_weight=3.0,
+                 depthnet_cfg=dict(), grid_config=None, **kwargs):
 
         super(BEVFormerEncoderDepth, self).__init__(*args, **kwargs)
         
@@ -858,8 +860,7 @@ class BEVFormerEncoderDepth(BEVFormerEncoder):
         self.feat_down_sample = feat_down_sample
         self.grid_config = grid_config
         self.D = int((grid_config['depth'][1] - grid_config['depth'][0]) / grid_config['depth'][2])
-        self.depth_net = DepthNet(in_channels, in_channels,
-                                  0, self.D, **depthnet_cfg)
+        self.depth_net = DepthNet(in_channels, in_channels, 0, self.D, **depthnet_cfg)
 
 
     @auto_fp16()
@@ -908,9 +909,9 @@ class BEVFormerEncoderDepth(BEVFormerEncoder):
             level_start_index=level_start_index,
             prev_bev=prev_bev,
             shift=shift,
-            **kwargs)
-        # import ipdb; ipdb.set_trace()
-        images = mlvl_feats[0]
+            **kwargs)                       # [2, 20000, 256]
+        # pdb.set_trace()
+        images = mlvl_feats[0]              # list( [2, 6, 256, 15, 25] )
         img_metas = kwargs['img_metas']
         B, N, C, fH, fW = images.shape
         lidar2img = []
@@ -945,12 +946,12 @@ class BEVFormerEncoderDepth(BEVFormerEncoder):
         lidar2ego_trans = lidar2ego[..., :3, 3]
 
         mlp_input = self.get_mlp_input(camera2ego, camera_intrinsics, post_rots, post_trans)
-        depth = self.get_cam_feats(images, mlp_input)
+        depth = self.get_cam_feats(images, mlp_input)           # [2, 6, 68, 15, 25]
+        # pdb.set_trace()
         ret_dict = dict(
-            bev=bev_embed['bev'],
+            bev=bev_embed['bev'],       # TODO   [2, 20000, 256] -> [2, 256, 200, 100]
             depth=depth,
         )
-        # import ipdb; ipdb.set_trace()
         return ret_dict
 
     @force_fp32()
@@ -977,45 +978,32 @@ class BEVFormerEncoderDepth(BEVFormerEncoder):
         gt_depths = gt_depths.permute(0, 1, 3, 5, 2, 4).contiguous() 
         gt_depths = gt_depths.view(-1, self.feat_down_sample * self.feat_down_sample)
         # 把gt_depth做feat_down_sample倍数的采样
-        gt_depths_tmp = torch.where(gt_depths == 0.0,
-                                    1e5 * torch.ones_like(gt_depths),
-                                    gt_depths)
+
+        gt_depths_tmp = torch.where(gt_depths == 0.0, 1e5 * torch.ones_like(gt_depths), gt_depths)
         # 因为深度很稀疏，大部分的点都是0，所以把0变成10000，下一步取-1维度上的最小就是深度的值
         gt_depths = torch.min(gt_depths_tmp, dim=-1).values
-        gt_depths = gt_depths.view(B * N, H // self.feat_down_sample,
-                                   W // self.feat_down_sample)
+        gt_depths = gt_depths.view(B * N, H // self.feat_down_sample, W // self.feat_down_sample)
 
-        gt_depths = (
-            gt_depths -
-            (self.grid_config['depth'][0] - 
-             self.grid_config['depth'][2])) / self.grid_config['depth'][2]
-        gt_depths = torch.where((gt_depths < self.D + 1) & (gt_depths >= 0.0),
-                                gt_depths, torch.zeros_like(gt_depths))
-        gt_depths = F.one_hot(
-            gt_depths.long(), num_classes=self.D + 1).view(-1, self.D + 1)[:,
-                                                                           1:]
+        gt_depths = (gt_depths - (self.grid_config['depth'][0] - self.grid_config['depth'][2])) / self.grid_config['depth'][2]
+        gt_depths = torch.where((gt_depths < self.D + 1) & (gt_depths >= 0.0), gt_depths, torch.zeros_like(gt_depths))
+        gt_depths = F.one_hot(gt_depths.long(), num_classes=self.D + 1).view(-1, self.D + 1)[:, 1:]
         return gt_depths.float()
 
     
     @force_fp32()
     def get_depth_loss(self, depth_labels, depth_preds):
-        # import pdb;pdb.set_trace()
         if depth_preds is None:
             return 0
         
         depth_labels = self.get_downsampled_gt_depth(depth_labels)
         depth_preds = depth_preds.permute(0, 1, 3, 4, 2).contiguous().view(-1, self.D)
         # fg_mask = torch.max(depth_labels, dim=1).values > 0.0 # 只计算有深度的前景的深度loss
-        # import pdb;pdb.set_trace()
-        fg_mask = depth_labels > 0.0 # 只计算有深度的前景的深度loss
+        # pdb.set_trace()
+        fg_mask = depth_labels > 0.0   # 只计算有深度的前景的深度loss
         depth_labels = depth_labels[fg_mask]
         depth_preds = depth_preds[fg_mask]
         with autocast(enabled=False):
-            depth_loss = F.binary_cross_entropy(
-                depth_preds,
-                depth_labels,
-                reduction='none',
-            ).sum() / max(1.0, fg_mask.sum())
+            depth_loss = F.binary_cross_entropy(depth_preds, depth_labels, reduction='none',).sum() / max(1.0, fg_mask.sum())
         # if depth_loss <= 0.:
         #     import pdb;pdb.set_trace()
         return self.loss_depth_weight * depth_loss
@@ -1094,12 +1082,12 @@ class LSSTransform(BaseTransform):
     @force_fp32()
     def get_cam_feats(self, x, mlp_input):
         B, N, C, fH, fW = x.shape
-
+        # pdb.set_trace()
         x = x.view(B * N, C, fH, fW)
 
         x = self.depth_net(x, mlp_input)
         depth = x[:, : self.D].softmax(dim=1)
-        x = depth.unsqueeze(1) * x[:, self.D : (self.D + self.C)].unsqueeze(2)
+        x = depth.unsqueeze(1) * x[:, self.D: (self.D + self.C)].unsqueeze(2)
 
         x = x.view(B, N, self.C, self.D, fH, fW)
         x = x.permute(0, 1, 3, 4, 5, 2)
@@ -1108,6 +1096,7 @@ class LSSTransform(BaseTransform):
 
     def forward(self, images, img_metas):
         x, depth = super().forward(images, img_metas)
+        # pdb.set_trace()
         x = self.downsample(x)
         ret_dict = dict(
             bev=x,
@@ -1123,35 +1112,25 @@ class LSSTransform(BaseTransform):
             gt_depths: [B*N*h*w, d]
         """
         B, N, H, W = gt_depths.shape
-        gt_depths = gt_depths.view(B * N, H // self.feat_down_sample,
-                                   self.feat_down_sample, W // self.feat_down_sample,
-                                   self.feat_down_sample, 1)
+        gt_depths = gt_depths.view(B * N, H // self.feat_down_sample, self.feat_down_sample,
+                                          W // self.feat_down_sample, self.feat_down_sample, 1)
         gt_depths = gt_depths.permute(0, 1, 3, 5, 2, 4).contiguous() 
         gt_depths = gt_depths.view(-1, self.feat_down_sample * self.feat_down_sample)
         # 把gt_depth做feat_down_sample倍数的采样
-        gt_depths_tmp = torch.where(gt_depths == 0.0,
-                                    1e5 * torch.ones_like(gt_depths),
-                                    gt_depths)
+        gt_depths_tmp = torch.where(gt_depths == 0.0, 1e5 * torch.ones_like(gt_depths), gt_depths)
         # 因为深度很稀疏，大部分的点都是0，所以把0变成10000，下一步取-1维度上的最小就是深度的值
         gt_depths = torch.min(gt_depths_tmp, dim=-1).values
-        gt_depths = gt_depths.view(B * N, H // self.feat_down_sample,
-                                   W // self.feat_down_sample)
+        gt_depths = gt_depths.view(B * N, H // self.feat_down_sample, W // self.feat_down_sample)
 
-        gt_depths = (
-            gt_depths -
-            (self.grid_config['depth'][0] - 
-             self.grid_config['depth'][2])) / self.grid_config['depth'][2]
-        gt_depths = torch.where((gt_depths < self.D + 1) & (gt_depths >= 0.0),
-                                gt_depths, torch.zeros_like(gt_depths))
-        gt_depths = F.one_hot(
-            gt_depths.long(), num_classes=self.D + 1).view(-1, self.D + 1)[:,
-                                                                           1:]
+        gt_depths = (gt_depths - (self.grid_config['depth'][0] - self.grid_config['depth'][2])) / self.grid_config['depth'][2]
+        gt_depths = torch.where((gt_depths < self.D + 1) & (gt_depths >= 0.0), gt_depths, torch.zeros_like(gt_depths))
+        gt_depths = F.one_hot(gt_depths.long(), num_classes=self.D + 1).view(-1, self.D + 1)[:, 1:]
         return gt_depths.float()
 
     
     @force_fp32()
     def get_depth_loss(self, depth_labels, depth_preds):
-        # import pdb;pdb.set_trace()
+        pdb.set_trace()
         if depth_preds is None:
             return 0
         
@@ -1159,7 +1138,7 @@ class LSSTransform(BaseTransform):
         depth_preds = depth_preds.permute(0, 1, 3, 4, 2).contiguous().view(-1, self.D)
         # fg_mask = torch.max(depth_labels, dim=1).values > 0.0 # 只计算有深度的前景的深度loss
         # import pdb;pdb.set_trace()
-        fg_mask = depth_labels > 0.0 # 只计算有深度的前景的深度loss
+        fg_mask = depth_labels > 0.0  # 只计算有深度的前景的深度loss
         depth_labels = depth_labels[fg_mask]
         depth_preds = depth_preds[fg_mask]
         with autocast(enabled=False):

@@ -1,4 +1,5 @@
 import copy
+import pdb
 import torch
 import torch.nn as nn
 import numpy as np
@@ -224,14 +225,14 @@ class MapTRPerceptionTransformer(BaseModule):
             **kwargs):
         # import ipdb;ipdb.set_trace()
         # assert len(mlvl_feats) == 1, 'Currently we only use last single level feat in LSS'
-        # import ipdb;ipdb.set_trace()
+        # pdb.set_trace()
         images = mlvl_feats[self.feat_down_sample_indice]
         img_metas = kwargs['img_metas']
-        encoder_outputdict = self.encoder(images,img_metas)
+        encoder_outputdict = self.encoder(images, img_metas)
         bev_embed = encoder_outputdict['bev']
         depth = encoder_outputdict['depth']
-        bs, c, _,_ = bev_embed.shape
-        bev_embed = bev_embed.view(bs,c,-1).permute(0,2,1).contiguous()
+        bs, c, _, _ = bev_embed.shape
+        bev_embed = bev_embed.view(bs, c, -1).permute(0, 2, 1).contiguous()
         ret_dict = dict(
             bev=bev_embed,
             depth=depth

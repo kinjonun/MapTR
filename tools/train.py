@@ -233,8 +233,7 @@ def main():
         val_dataset.test_mode = False
         datasets.append(build_dataset(val_dataset))
     if cfg.checkpoint_config is not None:
-        # save mmdet version, config file content and class names in
-        # checkpoints as meta data
+        # save mmdet version, config file content and class names in checkpoints as meta data
         cfg.checkpoint_config.meta = dict(
             mmdet_version=mmdet_version,
             mmseg_version=mmseg_version,

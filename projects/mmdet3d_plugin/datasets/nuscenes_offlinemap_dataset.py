@@ -1,5 +1,5 @@
 import copy
-
+import pdb
 import numpy as np
 from mmdet.datasets import DATASETS
 from mmdet3d.datasets import NuScenesDataset
@@ -1166,9 +1166,8 @@ class CustomNuScenesOfflineLocalMapDataset(CustomNuScenesDataset):
         self.pre_pipeline(input_dict)
         # import pdb;pdb.set_trace()
         example = self.pipeline(input_dict)
-        example = self.vectormap_pipeline(example,input_dict)
-        if self.filter_empty_gt and \
-                (example is None or ~(example['gt_labels_3d']._data != -1).any()):
+        example = self.vectormap_pipeline(example, input_dict)
+        if self.filter_empty_gt and (example is None or ~(example['gt_labels_3d']._data != -1).any()):
             return None
         data_queue.insert(0, example)
         for i in prev_indexs_list:
@@ -1191,7 +1190,7 @@ class CustomNuScenesOfflineLocalMapDataset(CustomNuScenesDataset):
         """
         convert sample queue into one single sample.
         """
-        # import ipdb;ipdb.set_trace()
+        # ipdb.set_trace()
         imgs_list = [each['img'].data for each in queue]
         metas_map = {}
         prev_pos = None
@@ -1207,9 +1206,8 @@ class CustomNuScenesOfflineLocalMapDataset(CustomNuScenesDataset):
                 metas_map[i]['can_bus'][-1] = 0
                 tmp_lidar2prev_lidar = np.eye(4)
                 metas_map[i]['tmp_lidar2prev_lidar'] = tmp_lidar2prev_lidar
-                tmp_lidar2prev_lidar_translation = tmp_lidar2prev_lidar[:3,3]
-                tmp_lidar2prev_lidar_angle = quaternion_yaw(Quaternion(
-                                                matrix=tmp_lidar2prev_lidar)) / np.pi * 180
+                tmp_lidar2prev_lidar_translation = tmp_lidar2prev_lidar[:3, 3]
+                tmp_lidar2prev_lidar_angle = quaternion_yaw(Quaternion(matrix=tmp_lidar2prev_lidar)) / np.pi * 180
                 metas_map[i]['tmp_lidar2prev_lidar_translation'] = tmp_lidar2prev_lidar_translation
                 metas_map[i]['tmp_lidar2prev_lidar_angle'] = tmp_lidar2prev_lidar_angle
             else:
@@ -1217,8 +1215,7 @@ class CustomNuScenesOfflineLocalMapDataset(CustomNuScenesDataset):
                 tmp_lidar2global = metas_map[i]['lidar2global']
                 tmp_lidar2prev_lidar = np.linalg.inv(prev_lidar2global)@tmp_lidar2global
                 tmp_lidar2prev_lidar_translation = tmp_lidar2prev_lidar[:3,3]
-                tmp_lidar2prev_lidar_angle = quaternion_yaw(Quaternion(
-                                                matrix=tmp_lidar2prev_lidar)) / np.pi * 180
+                tmp_lidar2prev_lidar_angle = quaternion_yaw(Quaternion(matrix=tmp_lidar2prev_lidar)) / np.pi * 180
                 tmp_pos = copy.deepcopy(metas_map[i]['can_bus'][:3])
                 tmp_angle = copy.deepcopy(metas_map[i]['can_bus'][-1])
                 metas_map[i]['can_bus'][:3] -= prev_pos
@@ -1230,8 +1227,7 @@ class CustomNuScenesOfflineLocalMapDataset(CustomNuScenesDataset):
                 prev_angle = copy.deepcopy(tmp_angle)
                 prev_lidar2global = copy.deepcopy(tmp_lidar2global)
 
-        queue[-1]['img'] = DC(torch.stack(imgs_list),
-                              cpu_only=False, stack=True)
+        queue[-1]['img'] = DC(torch.stack(imgs_list), cpu_only=False, stack=True)
         queue[-1]['img_metas'] = DC(metas_map, cpu_only=True)
         queue = queue[-1]
         return queue

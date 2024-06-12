@@ -9,15 +9,15 @@ plugin_dir = 'projects/mmdet3d_plugin/'
 # If point cloud range is changed, the models should also change their point
 # cloud range accordingly
 # point_cloud_range = [-51.2, -51.2, -5.0, 51.2, 51.2, 3.0]
-point_cloud_range = [-15.0, -30.0,-10.0, 15.0, 30.0, 10.0]
+point_cloud_range = [-15.0, -30.0, -10.0, 15.0, 30.0, 10.0]
 voxel_size = [0.15, 0.15, 20.0]
 dbound=[1.0, 35.0, 0.5]
 
 grid_config = {
-    'x': [-30.0, -30.0, 0.15], # useless
-    'y': [-15.0, -15.0, 0.15], # useless
-    'z': [-10, 10, 20],        # useless
-    'depth': [1.0, 35.0, 0.5], # useful
+    'x': [-30.0, -30.0, 0.15],  # useless
+    'y': [-15.0, -15.0, 0.15],  # useless
+    'z': [-10, 10, 20],         # useless
+    'depth': [1.0, 35.0, 0.5],  # useful
 }
 
 
@@ -33,10 +33,10 @@ class_names = [
 map_classes = ['divider', 'ped_crossing','boundary']
 # fixed_ptsnum_per_line = 20
 # map_classes = ['divider',]
-num_vec=50
-fixed_ptsnum_per_gt_line = 20 # now only support fixed_pts > 0
+num_vec = 50
+fixed_ptsnum_per_gt_line = 20  # now only support fixed_pts > 0
 fixed_ptsnum_per_pred_line = 20
-eval_use_same_gt_sample_num_flag=True
+eval_use_same_gt_sample_num_flag = True
 num_map_classes = len(map_classes)
 
 input_modality = dict(
@@ -54,7 +54,7 @@ _num_levels_ = 1
 # bev_w_ = 50
 bev_h_ = 200
 bev_w_ = 100
-queue_length = 1 # each sequence contains `queue_length` frames.
+queue_length = 1  # each sequence contains `queue_length` frames.
 
 aux_seg_cfg = dict(
     use_aux_seg=True,
@@ -95,7 +95,7 @@ model = dict(
         num_vec_one2one=50,
         num_vec_one2many=300,
         k_one2many=6,
-        num_pts_per_vec=fixed_ptsnum_per_pred_line, # one bbox
+        num_pts_per_vec=fixed_ptsnum_per_pred_line,  # one bbox
         num_pts_per_gt_vec=fixed_ptsnum_per_gt_line,
         dir_interval=1,
         query_embed_type='instance_pts',
@@ -223,7 +223,7 @@ train_pipeline = [
         file_client_args=file_client_args),
     dict(type='CustomPointToMultiViewDepth', downsample=1, grid_config=grid_config),
     dict(type='PadMultiViewImageDepth', size_divisor=32), 
-    dict(type='DefaultFormatBundle3D', with_gt=False, with_label=False,class_names=map_classes),
+    dict(type='DefaultFormatBundle3D', with_gt=False, with_label=False, class_names=map_classes),
     dict(type='CustomCollect3D', keys=['img', 'gt_depth'])
 ]
 
@@ -249,8 +249,8 @@ test_pipeline = [
 ]
 
 data = dict(
-    samples_per_gpu=4,
-    workers_per_gpu=4, # TODO
+    samples_per_gpu=2,
+    workers_per_gpu=0,
     train=dict(
         type=dataset_type,
         data_root=data_root,

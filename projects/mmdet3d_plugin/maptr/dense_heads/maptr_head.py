@@ -121,14 +121,15 @@ class MapTRHead(DETRHead):
         self.num_pts_per_vec = num_pts_per_vec
         self.num_pts_per_gt_vec = num_pts_per_gt_vec
         self.dir_interval = dir_interval
-        
-        
+
         super(MapTRHead, self).__init__(
             *args, transformer=transformer, **kwargs)
         self.code_weights = nn.Parameter(torch.tensor(
             self.code_weights, requires_grad=False), requires_grad=False)
         self.loss_pts = build_loss(loss_pts)
         self.loss_dir = build_loss(loss_dir)
+
+
         num_query = num_vec * num_pts_per_vec
         self.num_query = num_query
         self.num_vec = num_vec

@@ -1,4 +1,6 @@
 import copy
+import pdb
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -142,13 +144,12 @@ class MapTRv2(MVXTwoStageDetector):
             dict: Losses of each branch.
         """
 
-        outs = self.pts_bbox_head(
-            pts_feats, lidar_feat, img_metas, prev_bev)
-
-        depth = outs.pop('depth')
+        outs = self.pts_bbox_head(pts_feats, lidar_feat, img_metas, prev_bev)
+        # pdb.set_trace()
+        depth = outs.pop('depth')         # [2, 6, 68, 15, 25]
         losses = dict()
         # calculate depth loss
-        if gt_depth is not None:
+        if gt_depth is not None:          # [bs, 6, 480, 800]
             loss_depth = self.pts_bbox_head.transformer.encoder.get_depth_loss(gt_depth, depth)
             if digit_version(TORCH_VERSION) >= digit_version('1.8'):
                 loss_depth = torch.nan_to_num(loss_depth)
@@ -314,7 +315,8 @@ class MapTRv2(MVXTwoStageDetector):
         losses = dict()
         losses_pts = self.forward_pts_train(img_feats, lidar_feat, gt_bboxes_3d,
                                             gt_labels_3d, img_metas,
-                                            gt_bboxes_ignore, prev_bev, gt_depth,gt_seg_mask,gt_pv_seg_mask)
+                                            gt_bboxes_ignore, prev_bev,
+                                            gt_depth,gt_seg_mask,gt_pv_seg_mask)
 
         losses.update(losses_pts)
         return losses
